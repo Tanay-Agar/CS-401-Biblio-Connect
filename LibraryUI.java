@@ -1,6 +1,7 @@
 package biblioConnect_v3;
 
 import social_Network.SocialMediaService;
+import social_Network.SocialMediaServiceFactory;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -13,10 +14,18 @@ public class LibraryUI implements AutoCloseable {
     private Scanner scanner;
     private User currentUser;
 
-    public LibraryUI(LibraryManagementSystem system, SocialMediaService socialMediaService) {
+    public LibraryUI(LibraryManagementSystem system) {
         this.system = system;
-        this.socialMediaService = socialMediaService;
+        this.socialMediaService = SocialMediaServiceFactory.getInstance();
         this.scanner = new Scanner(System.in);
+    }
+    
+    private void showSocialMediaMenu() {
+        if (currentUser == null) {
+            System.out.println("You must be logged in to access social media features.");
+            return;
+        }
+        socialMediaService.showSocialMediaMenu(currentUser);
     }
 
     public void start() {
@@ -112,13 +121,6 @@ public class LibraryUI implements AutoCloseable {
                     return;
             }
         }
-    }
-
-    private void showSocialMediaMenu() {
-        System.out.println("\n===== Social Media Menu =====\n");
-        System.out.println("Social media features are not implemented yet.");
-        System.out.println("\nPress Enter to return to the main menu...");
-        scanner.nextLine();
     }
 
     private void showBookServicesMenu() {
@@ -285,8 +287,6 @@ public class LibraryUI implements AutoCloseable {
         scanner.nextLine();
     }
 
-    // Book Management Methods
-
     private void listAllBooks() {
         System.out.println("\n===== All Books in the Library =====\n");
         List<Book> books = system.getLibraryManagementService().listAllBooks();
@@ -383,8 +383,6 @@ public class LibraryUI implements AutoCloseable {
         System.out.println("\nPress Enter to return to the main menu...");
         scanner.nextLine();
     }
-
-    // Borrowing Methods
 
     private void borrowBook() {
         System.out.println("\n===== Borrow a Book =====\n");
@@ -612,7 +610,7 @@ public class LibraryUI implements AutoCloseable {
 
     private void viewAllOverdueBooks() {
         System.out.println("\n===== All Overdue Books =====\n");
-        List<BorrowingRecord> overdueBooks = system.getLibraryManagementService().getAllOverdueBooks(currentUser.getUsername());
+        List<BorrowingRecord> overdueBooks = system.getLibraryManagementService().getAllOverdueBooks("");
         if (overdueBooks.isEmpty()) {
             System.out.println("No overdue books.");
         } else {
@@ -622,7 +620,7 @@ public class LibraryUI implements AutoCloseable {
                 if (book != null && user != null) {
                     System.out.println("Title: " + book.getTitle());
                     System.out.println("User: " + user.getName());
-                    System.out.println("Due Date: " + record.getDueDate());
+                    System.out.println("Due Date: " + formatDateTime(record.getDueDate()));
                     System.out.println("Days Overdue: " + ChronoUnit.DAYS.between(record.getDueDate(), LocalDateTime.now()));
                     System.out.println("--------------------");
                 }
@@ -631,8 +629,6 @@ public class LibraryUI implements AutoCloseable {
         System.out.println("\nPress Enter to return to the main menu...");
         scanner.nextLine();
     }
-
-    // User Management Methods
 
     private void updateProfile() {
         System.out.println("\n===== Update Your Profile =====\n");
@@ -726,8 +722,6 @@ public class LibraryUI implements AutoCloseable {
         scanner.nextLine();
     }
 
-    // Search Method
-
     private void searchBook() {
         System.out.println("\n===== Search for a Book =====\n");
         System.out.println("You can search by title, author, or ISBN.");
@@ -757,8 +751,6 @@ public class LibraryUI implements AutoCloseable {
         System.out.println("\nPress Enter to return to the main menu...");
         scanner.nextLine();
     }
-
-    // Report Method
 
     private void reportDatabaseContent() {
         try {
@@ -799,7 +791,6 @@ public class LibraryUI implements AutoCloseable {
         scanner.nextLine();
     }
 
-    // Utility Methods
 
     private String getValidUsername() {
         while (true) {
