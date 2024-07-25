@@ -10,6 +10,8 @@ public class Post {
     private String content;
     private LocalDateTime timestamp;
     private List<String> likes;
+    private List<Comment> comments;
+    private List<String> shares;
 
     public Post(int id, String username, String content) {
         this.id = id;
@@ -17,27 +19,19 @@ public class Post {
         this.content = content;
         this.timestamp = LocalDateTime.now();
         this.likes = new ArrayList<>();
+        this.comments = new ArrayList<>();
+        this.shares = new ArrayList<>();
     }
 
-    public int getId() {
-        return id;
-    }
-
-    public String getUsername() {
-        return username;
-    }
-
-    public String getContent() {
-        return content;
-    }
-
-    public LocalDateTime getTimestamp() {
-        return timestamp;
-    }
-
-    public List<String> getLikes() {
-        return likes;
-    }
+    public int getId() { return id; }
+    public void setId(int id) { this.id = id; } // Add this method
+    public String getUsername() { return username; }
+    public String getContent() { return content; }
+    public LocalDateTime getTimestamp() { return timestamp; }
+    public void setTimestamp(LocalDateTime timestamp) { this.timestamp = timestamp; } // Add this method
+    public List<String> getLikes() { return likes; }
+    public List<Comment> getComments() { return comments; }
+    public List<String> getShares() { return shares; }
 
     public void addLike(String username) {
         if (!likes.contains(username)) {
@@ -49,6 +43,14 @@ public class Post {
         likes.remove(username);
     }
 
+    public void addComment(Comment comment) {
+        comments.add(comment);
+    }
+
+    public void addShare(String username) {
+        shares.add(username);
+    }
+
     @Override
     public String toString() {
         return "Post{" +
@@ -57,6 +59,8 @@ public class Post {
                 ", content='" + content + '\'' +
                 ", timestamp=" + timestamp +
                 ", likes=" + likes.size() +
+                ", comments=" + comments.size() +
+                ", shares=" + shares.size() +
                 '}';
     }
 }
