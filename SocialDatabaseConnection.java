@@ -301,7 +301,6 @@ public class SocialDatabaseConnection {
         return following;
     }
 
-    // Event methods
     public static void createEvent(Event event) throws SQLException {
         String sql = "INSERT INTO events (name, date, description, location) VALUES (?, ?, ?, ?)";
         try (Connection conn = getConnection();
@@ -311,9 +310,12 @@ public class SocialDatabaseConnection {
             pstmt.setString(3, event.getDescription());
             pstmt.setString(4, event.getLocation());
             pstmt.executeUpdate();
+
             try (ResultSet generatedKeys = pstmt.getGeneratedKeys()) {
                 if (generatedKeys.next()) {
                     event.setId(generatedKeys.getInt(1));
+                } else {
+                    throw new SQLException("Creating event failed, no ID obtained.");
                 }
             }
         }
