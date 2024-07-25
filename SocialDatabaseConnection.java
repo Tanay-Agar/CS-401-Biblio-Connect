@@ -1,349 +1,586 @@
 package social_Network;
 
-import java.sql.*;
+import biblioConnect_v3.User;
+import java.sql.SQLException;
+import java.util.*;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 
-public class SocialDatabaseConnection {
-    private static final String URL = "jdbc:mysql://localhost:3306/social_network_db";
-    private static final String USER = "project_user";
-    private static final String PASSWORD = "Luna123!";
+public class SocialMediaServiceImpl implements SocialMediaService {
+    private Scanner scanner;
+    private Map<String, UserProfile> userProfiles;
+    private List<Post> posts;
+    private Map<String, List<String>> groups;
+    private Map<String, List<String>> followers;
+    private List<Event> events;
+    private int postIdCounter;
+    private int eventIdCounter;
 
-    private static Connection getConnection() throws SQLException {
-        return DriverManager.getConnection(URL, USER, PASSWORD);
+    public SocialMediaServiceImpl() {
+        scanner = new Scanner(System.in);
+        userProfiles = new HashMap<>();
+        posts = new ArrayList<>();
+        groups = new HashMap<>();
+        followers = new HashMap<>();
+        events = new ArrayList<>();
+        postIdCounter = 1;
+        eventIdCounter = 1;
+        initializeGroups();
     }
 
-    // User Profile methods
-    public static void createUserProfile(UserProfile profile) throws SQLException {
-        String sql = "INSERT INTO user_profiles (username, favorite_books, reading_habits, literary_preferences) VALUES (?, ?, ?, ?)";
-        try (Connection conn = getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setString(1, profile.getUsername());
-            pstmt.setString(2, profile.getFavoriteBooks());
-            pstmt.setString(3, profile.getReadingHabits());
-            pstmt.setString(4, profile.getLiteraryPreferences());
-            pstmt.executeUpdate();
+    private void initializeGroups() {
+        groups.put("Fiction Lovers", new ArrayList<>());
+        groups.put("Non-Fiction Enthusiasts", new ArrayList<>());
+        groups.put("Mystery Readers", new ArrayList<>());
+        groups.put("Science Fiction Fans", new ArrayList<>());
+    }
+
+    @Override
+    public void createUserProfile(String username, String favoriteBooks, String readingHabits, String literaryPreferences) {
+        try {
+            UserProfile profile = new UserProfile(username);
+            profile.setFavoriteBooks(favoriteBooks);
+            profile.setReadingHabits(readingHabits);
+            profile.setLiteraryPreferences(literaryPreferences);
+            SocialDatabaseConnection.createUserProfile(profile);
+            userProfiles.put(username, profile);
+            System.out.println("User profile created successfully.");
+        } catch (SQLException e) {
+            System.out.println("Error creating user profile: " + e.getMessage());
         }
     }
 
-    public static UserProfile getUserProfile(String username) throws SQLException {
-        String sql = "SELECT * FROM user_profiles WHERE username = ?";
-        try (Connection conn = getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setString(1, username);
-            try (ResultSet rs = pstmt.executeQuery()) {
-                if (rs.next()) {
-                    UserProfile profile = new UserProfile(rs.getString("username"));
-                    profile.setFavoriteBooks(rs.getString("favorite_books"));
-                    profile.setReadingHabits(rs.getString("reading_habits"));
-                    profile.setLiteraryPreferences(rs.getString("literary_preferences"));
-                    return profile;
+    @Override
+    public void updateUserProfile(String username, String favoriteBooks, String readingHabits, String literaryPreferences) {
+        try {
+            UserProfile profile = SocialDatabaseConnection.getUserProfile(username);
+            if (profile != null) {
+                profile.setFavoriteBooks(favoriteBooks);
+                profile.setReadingHabits(readingHabits);
+                profile.setLiteraryPreferences(literaryPreferences);
+                SocialDatabaseConnection.updateUserProfile(profile);
+                userProfiles.put(username, profile);
+                System.out.println("User profile updated successfully.");
+            } else {
+                System.out.println("User profile not found.");
+            }
+        } catch (SQLException e) {
+            System.out.println("Error updating user profile: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public UserProfile getUserProfile(String username) {
+        try {
+            return SocialDatabaseConnection.getUserProfile(username);
+        } catch (SQLException e) {
+            System.out.println("Error retrieving user profile: " + e.getMessage());
+            return null;
+        }
+    }
+
+    @Override
+    public void createPost(String username, String content) {
+        try {
+            Post post = new Post(0, username, content);
+            SocialDatabaseConnection.createPost(post);
+            System.out.println("Post created successfully! Post ID: " + post.getId());
+        } catch (SQLException e) {
+            System.out.println("Error creating post: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public void commentOnPost(String postId, String username, String content) {
+        try {
+            Comment comment = new Comment(username, content);
+            SocialDatabaseConnection.addComment(Integer.parseInt(postId), comment);
+            System.out.println("Comment added successfully!");
+        } catch (SQLException e) {
+            System.out.println("Error adding comment: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public void likePost(String postId, String username) {
+        try {
+            SocialDatabaseConnection.addLike(Integer.parseInt(postId), username);
+            System.out.println("Post liked successfully!");
+        } catch (SQLException e) {
+            System.out.println("Error liking post: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public void sharePost(String postId, String username) {
+        try {
+            Post originalPost = SocialDatabaseConnection.getPost(Integer.parseInt(postId));
+            if (originalPost != null) {
+                String sharedContent = "Shared post from " + originalPost.getUsername() + ": " + originalPost.getContent();
+                createPost(username, sharedContent);
+                System.out.println("Post shared successfully!");
+            } else {
+                System.out.println("Original post not found.");
+            }
+        } catch (SQLException e) {
+            System.out.println("Error sharing post: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public void createGroup(String name, String description) {
+        try {
+            SocialDatabaseConnection.createGroup(name, description);
+            groups.put(name, new ArrayList<>());
+            System.out.println("Group created successfully: " + name);
+        } catch (SQLException e) {
+            System.out.println("Error creating group: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public void joinGroup(String groupId, String username) {
+        try {
+            SocialDatabaseConnection.joinGroup(groupId, username);
+            groups.computeIfAbsent(groupId, k -> new ArrayList<>()).add(username);
+            System.out.println("You've joined the group: " + groupId);
+        } catch (SQLException e) {
+            System.out.println("Error joining group: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public void leaveGroup(String groupId, String username) {
+        try {
+            SocialDatabaseConnection.leaveGroup(groupId, username);
+            groups.getOrDefault(groupId, new ArrayList<>()).remove(username);
+            System.out.println("You've left the group: " + groupId);
+        } catch (SQLException e) {
+            System.out.println("Error leaving group: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public void postInGroup(String groupId, String username, String content) {
+        try {
+            SocialDatabaseConnection.postInGroup(groupId, username, content);
+            System.out.println("Posted successfully in group: " + groupId);
+        } catch (SQLException e) {
+            System.out.println("Error posting in group: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public List<String> getGroupDiscussions(String groupId) {
+        try {
+            return SocialDatabaseConnection.getGroupDiscussions(groupId);
+        } catch (SQLException e) {
+            System.out.println("Error retrieving group discussions: " + e.getMessage());
+            return new ArrayList<>();
+        }
+    }
+
+    @Override
+    public void followUser(String followerUsername, String followedUsername) {
+        try {
+            UserProfile follower = SocialDatabaseConnection.getUserProfile(followerUsername);
+            UserProfile followed = SocialDatabaseConnection.getUserProfile(followedUsername);
+            
+            if (follower == null) {
+                System.out.println("Your profile doesn't exist. Creating a default profile.");
+                createUserProfile(followerUsername, "", "", "");
+            }
+            if (followed == null) {
+                System.out.println("The user you're trying to follow doesn't have a profile.");
+                return;
+            }
+            
+            SocialDatabaseConnection.followUser(followerUsername, followedUsername);
+            System.out.println("You are now following " + followedUsername);
+        } catch (SQLException e) {
+            System.out.println("Error following user: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public void unfollowUser(String followerUsername, String unfollowedUsername) {
+        try {
+            SocialDatabaseConnection.unfollowUser(followerUsername, unfollowedUsername);
+            System.out.println("You have unfollowed " + unfollowedUsername);
+        } catch (SQLException e) {
+            System.out.println("Error unfollowing user: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public List<String> getFollowers(String username) {
+        try {
+            return SocialDatabaseConnection.getFollowers(username);
+        } catch (SQLException e) {
+            System.out.println("Error retrieving followers: " + e.getMessage());
+            return new ArrayList<>();
+        }
+    }
+
+    @Override
+    public List<String> getFollowing(String username) {
+        try {
+            return SocialDatabaseConnection.getFollowing(username);
+        } catch (SQLException e) {
+            System.out.println("Error retrieving following: " + e.getMessage());
+            return new ArrayList<>();
+        }
+    }
+
+    @Override
+    public void createEvent(String name, String date, String description, String location) {
+        try {
+            Event event = new Event(0, name, date, description, location); // Use 0 as a temporary ID
+            SocialDatabaseConnection.createEvent(event);
+            System.out.println("Event created successfully: " + name + " (ID: " + event.getId() + ")");
+        } catch (SQLException e) {
+            System.out.println("Error creating event: " + e.getMessage());
+        }
+    }
+    
+    @Override
+    public void rsvpToEvent(int eventId, String userId) {
+        try {
+            SocialDatabaseConnection.rsvpToEvent(eventId, userId);
+            System.out.println("You have RSVP'd to the event.");
+        } catch (SQLException e) {
+            System.out.println("Error RSVPing to event: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public List<Event> viewUpcomingEvents() {
+        try {
+            return SocialDatabaseConnection.getUpcomingEvents();
+        } catch (SQLException e) {
+            System.out.println("Error retrieving upcoming events: " + e.getMessage());
+            return new ArrayList<>();
+        }
+    }
+
+    @Override
+    public void showSocialMediaMenu(User currentUser) {
+        while (true) {
+            System.out.println("\n===== Social Media Menu =====");
+            System.out.println("1. View/Edit Profile");
+            System.out.println("2. Create Post");
+            System.out.println("3. View Recent Posts");
+            System.out.println("4. Comment on Post");
+            System.out.println("5. Like Post");
+            System.out.println("6. Share Post");
+            System.out.println("7. Create Group");
+            System.out.println("8. Join/Leave Group");
+            System.out.println("9. View Group Discussions");
+            System.out.println("10. Group Chat");
+            System.out.println("11. Follow/Unfollow User");
+            System.out.println("12. View Followers/Following");
+            System.out.println("13. View Upcoming Events");
+            System.out.println("14. Create Event");
+            System.out.println("15. RSVP to Event");
+            System.out.println("16. Return to Main Menu");
+
+            int choice = getIntInput("Enter your choice: ");
+            switch (choice) {
+                case 1:
+                    handleProfileOperations(currentUser);
+                    break;
+                case 2:
+                    handleCreatePost(currentUser);
+                    break;
+                case 3:
+                    handleViewRecentPosts();
+                    break;
+                case 4:
+                    handleCommentOnPost(currentUser);
+                    break;
+                case 5:
+                    handleLikePost(currentUser);
+                    break;
+                case 6:
+                    handleSharePost(currentUser);
+                    break;
+                case 7:
+                    handleCreateGroup(currentUser);
+                    break;
+                case 8:
+                    handleGroupOperations(currentUser);
+                    break;
+                case 9:
+                    handleViewGroupDiscussions();
+                    break;
+                case 10:
+                    handleGroupChat(currentUser);
+                    break;
+                case 11:
+                    handleFollowOperations(currentUser);
+                    break;
+                case 12:
+                    handleViewFollowersFollowing(currentUser);
+                    break;
+                case 13:
+                    handleViewEvents(currentUser);
+                    break;
+                case 14:
+                    handleCreateEvent(currentUser);
+                    break;
+                case 15:
+                    handleRSVPToEvent(currentUser);
+                    break;
+                case 16:
+                    return;
+                default:
+                    System.out.println("Invalid choice. Please try again.");
+            }
+        }
+    }
+
+    @Override
+    public void handleProfileOperations(User currentUser) {
+        System.out.println("\n===== Profile Operations =====");
+        UserProfile profile = getUserProfile(currentUser.getUsername());
+        if (profile == null) {
+            System.out.println("You don't have a profile yet. Let's create one!");
+            String favoriteBooks = getStringInput("Enter your favorite books: ");
+            String readingHabits = getStringInput("Describe your reading habits: ");
+            String literaryPreferences = getStringInput("Describe your literary preferences: ");
+            createUserProfile(currentUser.getUsername(), favoriteBooks, readingHabits, literaryPreferences);
+        } else {
+            System.out.println("Current Profile:");
+            System.out.println(profile);
+            System.out.println("\nDo you want to update your profile? (y/n)");
+            if (scanner.nextLine().trim().equalsIgnoreCase("y")) {
+                String favoriteBooks = getStringInput("Enter your favorite books: ");
+                String readingHabits = getStringInput("Describe your reading habits: ");
+                String literaryPreferences = getStringInput("Describe your literary preferences: ");
+                updateUserProfile(currentUser.getUsername(), favoriteBooks, readingHabits, literaryPreferences);
+            }
+        }
+    }
+
+    @Override
+    public void handleCreatePost(User currentUser) {
+        String content = getStringInput("Enter your post content: ");
+        createPost(currentUser.getUsername(), content);
+    }
+
+    @Override
+    public void handleViewRecentPosts() {
+        System.out.println("\n===== Recent Posts =====");
+        List<Post> recentPosts = getRecentPosts(10);
+        if (recentPosts.isEmpty()) {
+            System.out.println("No recent posts found.");
+        } else {
+            for (Post post : recentPosts) {
+                System.out.println("ID: " + post.getId() + " | User: " + post.getUsername() + 
+                                   " | Content: " + post.getContent() + 
+                                   " | Time: " + post.getTimestamp());
+                List<Comment> comments = getCommentsForPost(post.getId());
+                if (!comments.isEmpty()) {
+                    System.out.println("Comments:");
+                    for (Comment comment : comments) {
+                        System.out.println("  - " + comment.getUsername() + ": " + comment.getContent());
+                    }
                 }
-            }
-        }
-        return null;
-    }
-
-    public static void updateUserProfile(UserProfile profile) throws SQLException {
-        String sql = "UPDATE user_profiles SET favorite_books = ?, reading_habits = ?, literary_preferences = ? WHERE username = ?";
-        try (Connection conn = getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setString(1, profile.getFavoriteBooks());
-            pstmt.setString(2, profile.getReadingHabits());
-            pstmt.setString(3, profile.getLiteraryPreferences());
-            pstmt.setString(4, profile.getUsername());
-            pstmt.executeUpdate();
-        }
-    }
-
-    // Post methods
-    public static void createPost(Post post) throws SQLException {
-        String sql = "INSERT INTO posts (username, content, timestamp) VALUES (?, ?, ?)";
-        try (Connection conn = getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-            pstmt.setString(1, post.getUsername());
-            pstmt.setString(2, post.getContent());
-            pstmt.setTimestamp(3, Timestamp.valueOf(post.getTimestamp()));
-            pstmt.executeUpdate();
-            try (ResultSet generatedKeys = pstmt.getGeneratedKeys()) {
-                if (generatedKeys.next()) {
-                    post.setId(generatedKeys.getInt(1));
-                }
+                System.out.println("--------------------");
             }
         }
     }
 
-    public static List<Post> getRecentPosts(int limit) throws SQLException {
-        String sql = "SELECT * FROM posts ORDER BY timestamp DESC LIMIT ?";
-        List<Post> posts = new ArrayList<>();
-        try (Connection conn = getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setInt(1, limit);
-            try (ResultSet rs = pstmt.executeQuery()) {
-                while (rs.next()) {
-                    Post post = new Post(rs.getInt("id"), rs.getString("username"), rs.getString("content"));
-                    post.setTimestamp(rs.getTimestamp("timestamp").toLocalDateTime());
-                    posts.add(post);
-                }
-            }
-        }
-        return posts;
+    @Override
+    public void handleCommentOnPost(User currentUser) {
+        String postId = getStringInput("Enter the ID of the post you want to comment on: ");
+        String content = getStringInput("Enter your comment: ");
+        commentOnPost(postId, currentUser.getUsername(), content);
     }
 
-    public static Post getPost(int postId) throws SQLException {
-        String sql = "SELECT * FROM posts WHERE id = ?";
-        try (Connection conn = getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setInt(1, postId);
-            try (ResultSet rs = pstmt.executeQuery()) {
-                if (rs.next()) {
-                    Post post = new Post(rs.getInt("id"), rs.getString("username"), rs.getString("content"));
-                    post.setTimestamp(rs.getTimestamp("timestamp").toLocalDateTime());
-                    return post;
-                }
-            }
-        }
-        return null;
+    @Override
+    public void handleLikePost(User currentUser) {
+        String postId = getStringInput("Enter the ID of the post you want to like: ");
+        likePost(postId, currentUser.getUsername());
     }
 
-    // Comment methods
-    public static void addComment(int postId, Comment comment) throws SQLException {
-        String sql = "INSERT INTO comments (post_id, username, content, timestamp) VALUES (?, ?, ?, ?)";
-        try (Connection conn = getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setInt(1, postId);
-            pstmt.setString(2, comment.getUsername());
-            pstmt.setString(3, comment.getContent());
-            pstmt.setTimestamp(4, Timestamp.valueOf(comment.getTimestamp()));
-            pstmt.executeUpdate();
-        }
+    @Override
+    public void handleSharePost(User currentUser) {
+        String postId = getStringInput("Enter the ID of the post you want to share: ");
+        sharePost(postId, currentUser.getUsername());
     }
 
-    public static List<Comment> getCommentsForPost(int postId) throws SQLException {
-        String sql = "SELECT * FROM comments WHERE post_id = ? ORDER BY timestamp";
-        List<Comment> comments = new ArrayList<>();
-        try (Connection conn = getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setInt(1, postId);
-            try (ResultSet rs = pstmt.executeQuery()) {
-                while (rs.next()) {
-                    Comment comment = new Comment(rs.getString("username"), rs.getString("content"));
-                    comment.setTimestamp(rs.getTimestamp("timestamp").toLocalDateTime());
-                    comments.add(comment);
-                }
-            }
-        }
-        return comments;
+    @Override
+    public void handleCreateGroup(User currentUser) {
+        String name = getStringInput("Enter group name: ");
+        String description = getStringInput("Enter group description: ");
+        createGroup(name, description);
     }
 
-    // Like methods
-    public static void addLike(int postId, String username) throws SQLException {
-        String sql = "INSERT INTO likes (post_id, username) VALUES (?, ?)";
-        try (Connection conn = getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setInt(1, postId);
-            pstmt.setString(2, username);
-            pstmt.executeUpdate();
-        }
-    }
-
-    public static void removeLike(int postId, String username) throws SQLException {
-        String sql = "DELETE FROM likes WHERE post_id = ? AND username = ?";
-        try (Connection conn = getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setInt(1, postId);
-            pstmt.setString(2, username);
-            pstmt.executeUpdate();
-        }
-    }
-
-    // Group methods
-    public static void createGroup(String name, String description) throws SQLException {
-        String sql = "INSERT INTO `groups` (name, description) VALUES (?, ?)";
-        try (Connection conn = getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setString(1, name);
-            pstmt.setString(2, description);
-            pstmt.executeUpdate();
-        }
-    }
-
-    public static void joinGroup(String groupName, String username) throws SQLException {
-        String sql = "INSERT INTO group_members (group_name, username) VALUES (?, ?)";
-        try (Connection conn = getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setString(1, groupName);
-            pstmt.setString(2, username);
-            pstmt.executeUpdate();
-        }
-    }
-
-    public static void leaveGroup(String groupName, String username) throws SQLException {
-        String sql = "DELETE FROM group_members WHERE group_name = ? AND username = ?";
-        try (Connection conn = getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setString(1, groupName);
-            pstmt.setString(2, username);
-            pstmt.executeUpdate();
-        }
-    }
-
-    public static void postInGroup(String groupName, String username, String content) throws SQLException {
-        String sql = "INSERT INTO group_posts (group_name, username, content, timestamp) VALUES (?, ?, ?, ?)";
-        try (Connection conn = getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setString(1, groupName);
-            pstmt.setString(2, username);
-            pstmt.setString(3, content);
-            pstmt.setTimestamp(4, Timestamp.valueOf(LocalDateTime.now()));
-            int affectedRows = pstmt.executeUpdate();
-            if (affectedRows == 0) {
-                throw new SQLException("Creating post failed, no rows affected.");
-            }
-        }
-    }
-
-    public static List<String> getGroupDiscussions(String groupName) throws SQLException {
-        String sql = "SELECT username, content, timestamp FROM group_posts WHERE group_name = ? ORDER BY timestamp DESC";
-        List<String> discussions = new ArrayList<>();
-        try (Connection conn = getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setString(1, groupName);
-            try (ResultSet rs = pstmt.executeQuery()) {
-                while (rs.next()) {
-                    String discussion = rs.getString("username") + " - " + 
-                                        rs.getTimestamp("timestamp") + ": " + 
-                                        rs.getString("content");
-                    discussions.add(discussion);
-                }
-            }
-        }
-        return discussions;
-    }
-
-    public static List<String> getAllGroups() throws SQLException {
-        String sql = "SELECT name FROM `groups`";
-        List<String> groups = new ArrayList<>();
-        try (Connection conn = getConnection();
-             Statement stmt = conn.createStatement();
-             ResultSet rs = stmt.executeQuery(sql)) {
-            while (rs.next()) {
-                groups.add(rs.getString("name"));
-            }
-        }
-        return groups;
-    }
-
-    public static List<String> getGroupMembers(String groupName) throws SQLException {
-        String sql = "SELECT username FROM group_members WHERE group_name = ?";
-        List<String> members = new ArrayList<>();
-        try (Connection conn = getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setString(1, groupName);
-            try (ResultSet rs = pstmt.executeQuery()) {
-                while (rs.next()) {
-                    members.add(rs.getString("username"));
-                }
-            }
-        }
-        return members;
-    }
-
-    // Following methods
-    public static void followUser(String follower, String followed) throws SQLException {
-        String sql = "INSERT INTO followers (follower, followed) VALUES (?, ?)";
-        try (Connection conn = getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setString(1, follower);
-            pstmt.setString(2, followed);
-            pstmt.executeUpdate();
-        }
-    }
-
-    public static void unfollowUser(String follower, String followed) throws SQLException {
-        String sql = "DELETE FROM followers WHERE follower = ? AND followed = ?";
-        try (Connection conn = getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setString(1, follower);
-            pstmt.setString(2, followed);
-            pstmt.executeUpdate();
-        }
-    }
-
-    public static List<String> getFollowers(String username) throws SQLException {
-        String sql = "SELECT follower FROM followers WHERE followed = ?";
-        List<String> followers = new ArrayList<>();
-        try (Connection conn = getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setString(1, username);
-            try (ResultSet rs = pstmt.executeQuery()) {
-                while (rs.next()) {
-                    followers.add(rs.getString("follower"));
-                }
-            }
-        }
-        return followers;
-    }
-
-    public static List<String> getFollowing(String username) throws SQLException {
-        String sql = "SELECT followed FROM followers WHERE follower = ?";
-        List<String> following = new ArrayList<>();
-        try (Connection conn = getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setString(1, username);
-            try (ResultSet rs = pstmt.executeQuery()) {
-                while (rs.next()) {
-                    following.add(rs.getString("followed"));
-                }
-            }
-        }
-        return following;
-    }
-
-    public static void createEvent(Event event) throws SQLException {
-        String sql = "INSERT INTO events (name, date, description, location) VALUES (?, ?, ?, ?)";
-        try (Connection conn = getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-            pstmt.setString(1, event.getName());
-            pstmt.setString(2, event.getDate());
-            pstmt.setString(3, event.getDescription());
-            pstmt.setString(4, event.getLocation());
-            pstmt.executeUpdate();
-
-            try (ResultSet generatedKeys = pstmt.getGeneratedKeys()) {
-                if (generatedKeys.next()) {
-                    event.setId(generatedKeys.getInt(1));
+    @Override
+    public void handleGroupOperations(User currentUser) {
+        System.out.println("\n===== Group Operations =====");
+        System.out.println("Available groups:");
+        List<String> allGroups = listAllGroups();
+        allGroups.forEach(System.out::println);
+        
+        String groupName = getStringInput("Enter group name to join/leave (or press enter to cancel): ");
+        if (!groupName.isEmpty()) {
+            if (allGroups.contains(groupName)) {
+                List<String> groupMembers = getGroupMembers(groupName);
+                if (groupMembers.contains(currentUser.getUsername())) {
+                    leaveGroup(groupName, currentUser.getUsername());
                 } else {
-                    throw new SQLException("Creating event failed, no ID obtained.");
+                    joinGroup(groupName, currentUser.getUsername());
                 }
+            } else {
+                System.out.println("Group not found: " + groupName);
             }
         }
     }
 
-    public static List<Event> getUpcomingEvents() throws SQLException {
-        String sql = "SELECT * FROM events WHERE date >= CURDATE() ORDER BY date";
-        List<Event> events = new ArrayList<>();
-        try (Connection conn = getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            try (ResultSet rs = pstmt.executeQuery()) {
-                while (rs.next()) {
-                    Event event = new Event(rs.getInt("id"), rs.getString("name"), rs.getString("date"),
-                            rs.getString("description"), rs.getString("location"));
-                    events.add(event);
-                }
-            }
+    @Override
+    public void handleViewGroupDiscussions() {
+        String groupName = getStringInput("Enter group name to view discussions: ");
+        List<String> discussions = getGroupDiscussions(groupName);
+        if (discussions.isEmpty()) {
+            System.out.println("No discussions found for this group.");
+        } else {
+            System.out.println("\n===== Group Discussions =====");
+            discussions.forEach(System.out::println);
         }
-        return events;
     }
 
-    public static void rsvpToEvent(int eventId, String username) throws SQLException {
-        String sql = "INSERT INTO event_attendees (event_id, username) VALUES (?, ?)";
-        try (Connection conn = getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setInt(1, eventId);
-            pstmt.setString(2, username);
-            pstmt.executeUpdate();
+    @Override
+    public void handleGroupChat(User currentUser) {
+        String groupName = getStringInput("Enter group name to chat in: ");
+        while (true) {
+            String message = getStringInput("Enter your message (or 'exit' to leave chat): ");
+            if (message.equalsIgnoreCase("exit")) {
+                break;
+            }
+            postInGroup(groupName, currentUser.getUsername(), message);
+            
+            // Display recent messages
+            List<String> recentMessages = getGroupDiscussions(groupName);
+            System.out.println("\nRecent messages:");
+            for (int i = Math.max(0, recentMessages.size() - 5); i < recentMessages.size(); i++) {
+                System.out.println(recentMessages.get(i));
+            }
         }
+    }
+
+    @Override
+    public void handleFollowOperations(User currentUser) {
+        String username = getStringInput("Enter username to follow/unfollow: ");
+        List<String> followers = getFollowers(username);
+        if (followers.contains(currentUser.getUsername())) {
+            unfollowUser(currentUser.getUsername(), username);
+        } else {
+            followUser(currentUser.getUsername(), username);
+        }
+    }
+
+    @Override
+    public void handleViewFollowersFollowing(User currentUser) {
+        System.out.println("\n===== Your Followers =====");
+        List<String> followers = getFollowers(currentUser.getUsername());
+        if (followers.isEmpty()) {
+            System.out.println("You have no followers.");
+        } else {
+            followers.forEach(System.out::println);
+        }
+
+        System.out.println("\n===== Users You Follow =====");
+        List<String> following = getFollowing(currentUser.getUsername());
+        if (following.isEmpty()) {
+            System.out.println("You are not following anyone.");
+        } else {
+            following.forEach(System.out::println);
+        }
+    }
+
+    @Override
+    public void handleViewEvents(User currentUser) {
+        System.out.println("\n===== Upcoming Events =====");
+        List<Event> upcomingEvents = viewUpcomingEvents();
+        if (upcomingEvents.isEmpty()) {
+            System.out.println("No upcoming events.");
+        } else {
+            for (Event event : upcomingEvents) {
+                System.out.println("ID: " + event.getId() + " | Name: " + event.getName() + 
+                                   " | Date: " + event.getDate() + 
+                                   " | Description: " + event.getDescription() +
+                                   " | Location: " + event.getLocation());
+            }
+        }
+    }
+
+    @Override
+    public void handleCreateEvent(User currentUser) {
+        String name = getStringInput("Enter event name: ");
+        String date = getStringInput("Enter event date (YYYY-MM-DD): ");
+        String description = getStringInput("Enter event description: ");
+        String location = getStringInput("Enter event location: ");
+        createEvent(name, date, description, location);
+    }
+
+    @Override
+    public void handleRSVPToEvent(User currentUser) {
+        int eventId = getIntInput("Enter the ID of the event you want to RSVP to: ");
+        rsvpToEvent(eventId, currentUser.getUsername());
+    }
+
+    @Override
+    public List<Post> getRecentPosts(int limit) {
+        try {
+            return SocialDatabaseConnection.getRecentPosts(limit);
+        } catch (SQLException e) {
+            System.out.println("Error retrieving recent posts: " + e.getMessage());
+            return new ArrayList<>();
+        }
+    }
+
+    @Override
+    public List<String> listAllGroups() {
+        try {
+            return SocialDatabaseConnection.getAllGroups();
+        } catch (SQLException e) {
+            System.out.println("Error retrieving groups: " + e.getMessage());
+            return new ArrayList<>();
+        }
+    }
+
+    private List<String> getGroupMembers(String groupName) {
+        try {
+            return SocialDatabaseConnection.getGroupMembers(groupName);
+        } catch (SQLException e) {
+            System.out.println("Error retrieving group members: " + e.getMessage());
+            return new ArrayList<>();
+        }
+    }
+
+    private List<Comment> getCommentsForPost(int postId) {
+        try {
+            return SocialDatabaseConnection.getCommentsForPost(postId);
+        } catch (SQLException e) {
+            System.out.println("Error retrieving comments: " + e.getMessage());
+            return new ArrayList<>();
+        }
+    }
+
+    private int getIntInput(String prompt) {
+        while (true) {
+            try {
+                System.out.print(prompt);
+                return Integer.parseInt(scanner.nextLine().trim());
+            } catch (NumberFormatException e) {
+                System.out.println("Invalid input. Please enter a number.");
+            }
+        }
+    }
+
+    private String getStringInput(String prompt) {
+        System.out.print(prompt);
+        return scanner.nextLine().trim();
     }
 }
