@@ -182,6 +182,19 @@ public class SocialMediaServiceImpl implements SocialMediaService {
     @Override
     public void followUser(String followerUsername, String followedUsername) {
         try {
+            // Check if both users exist in the user_profiles table
+            UserProfile follower = SocialDatabaseConnection.getUserProfile(followerUsername);
+            UserProfile followed = SocialDatabaseConnection.getUserProfile(followedUsername);
+            
+            if (follower == null) {
+                System.out.println("Your profile doesn't exist. Creating a default profile.");
+                createUserProfile(followerUsername, "", "", "");
+            }
+            if (followed == null) {
+                System.out.println("The user you're trying to follow doesn't have a profile.");
+                return;
+            }
+            
             SocialDatabaseConnection.followUser(followerUsername, followedUsername);
             System.out.println("You are now following " + followedUsername);
         } catch (SQLException e) {
