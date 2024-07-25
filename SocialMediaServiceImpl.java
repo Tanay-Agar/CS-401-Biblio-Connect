@@ -182,7 +182,6 @@ public class SocialMediaServiceImpl implements SocialMediaService {
     @Override
     public void followUser(String followerUsername, String followedUsername) {
         try {
-            // Check if both users exist in the user_profiles table
             UserProfile follower = SocialDatabaseConnection.getUserProfile(followerUsername);
             UserProfile followed = SocialDatabaseConnection.getUserProfile(followedUsername);
             
@@ -235,19 +234,19 @@ public class SocialMediaServiceImpl implements SocialMediaService {
     @Override
     public void createEvent(String name, String date, String description, String location) {
         try {
-            Event event = new Event(0, name, date, description, location);
+            Event event = new Event(0, name, date, description, location); // Use 0 as a temporary ID
             SocialDatabaseConnection.createEvent(event);
-            System.out.println("Event created successfully! Event ID: " + event.getId());
+            System.out.println("Event created successfully: " + name + " (ID: " + event.getId() + ")");
         } catch (SQLException e) {
             System.out.println("Error creating event: " + e.getMessage());
         }
     }
-
+    
     @Override
-    public void rsvpToEvent(int eventId, String username) {
+    public void rsvpToEvent(int eventId, String userId) {
         try {
-            SocialDatabaseConnection.rsvpToEvent(eventId, username);
-            System.out.println("RSVP successful for event ID: " + eventId);
+            SocialDatabaseConnection.rsvpToEvent(eventId, userId);
+            System.out.println("You have RSVP'd to the event.");
         } catch (SQLException e) {
             System.out.println("Error RSVPing to event: " + e.getMessage());
         }
@@ -323,7 +322,7 @@ public class SocialMediaServiceImpl implements SocialMediaService {
                     handleViewFollowersFollowing(currentUser);
                     break;
                 case 13:
-                    handleViewEvents();
+                    handleViewEvents(currentUser);
                     break;
                 case 14:
                     handleCreateEvent(currentUser);
@@ -464,7 +463,7 @@ public class SocialMediaServiceImpl implements SocialMediaService {
             // Display recent messages
             List<String> recentMessages = getGroupDiscussions(groupName);
             System.out.println("\nRecent messages:");
-            for (int i = 0; i < Math.min(5, recentMessages.size()); i++) {
+            for (int i = Math.max(0, recentMessages.size() - 5); i < recentMessages.size(); i++) {
                 System.out.println(recentMessages.get(i));
             }
         }
@@ -501,13 +500,18 @@ public class SocialMediaServiceImpl implements SocialMediaService {
     }
 
     @Override
-    public void handleViewEvents() {
+    public void handleViewEvents(User currentUser) {
         System.out.println("\n===== Upcoming Events =====");
-        List<Event> events = viewUpcomingEvents();
-        if (events.isEmpty()) {
-            System.out.println("No upcoming events found.");
+        List<Event> upcomingEvents = viewUpcomingEvents();
+        if (upcomingEvents.isEmpty()) {
+            System.out.println("No upcoming events.");
         } else {
-            events.forEach(System.out::println);
+            for (Event event : upcomingEvents) {
+                System.out.println("ID: " + event.getId() + " | Name: " + event.getName() + 
+                                   " | Date: " + event.getDate() + 
+                                   " | Description: " + event.getDescription() +
+                                   " | Location: " + event.getLocation());
+            }
         }
     }
 
