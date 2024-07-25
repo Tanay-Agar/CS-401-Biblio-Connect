@@ -19,37 +19,23 @@ public class Event {
         this.location = location;
         this.attendees = new ArrayList<>();
     }
-    
-    public void setId(int id) {
-        this.id = id;
-    }
 
+    // Getters and setters
     public int getId() { return id; }
+    public void setId(int id) { this.id = id; } // Add this method
     public String getName() { return name; }
     public String getDate() { return date; }
     public String getDescription() { return description; }
     public String getLocation() { return location; }
     public List<String> getAttendees() { return attendees; }
 
-    public void addAttendee(String username) {
-        if (!attendees.contains(username)) {
-            attendees.add(username);
+    public void addAttendee(String userId) {
+        if (!attendees.contains(userId)) {
+            attendees.add(userId);
         }
     }
 
-    public void removeAttendee(String username) {
-        attendees.remove(username);
-    }
-
-    @Override
-    public String toString() {
-        return "Event{" +
-                "id=" + id +
-                ", name='" + name + '\'' +
-                ", date='" + date + '\'' +
-                ", description='" + description + '\'' +
-                ", location='" + location + '\'' +
-                ", attendees=" + attendees.size() +
-                '}';
+    public void removeAttendee(String userId) {
+        attendees.remove(userId);
     }
 }
